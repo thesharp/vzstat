@@ -1,5 +1,5 @@
 NAME="vzstat"
-VERSION="0.1"
+VERSION="0.2"
 TARGET="${NAME}-${VERSION}"
 
 tarball: clean
