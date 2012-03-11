@@ -36,19 +36,20 @@ a = proc.communicate()[0]
 data = {}
 a = a.split('\n')[1:]
 for i in a:
-    if not i: continue
+    if not i:
+        continue
     i_data = i.split()
     data[i_data[0]] = i_data[1:]
-   
+
 for i in open("/proc/meminfo"):
     if i.startswith("MemTotal"):
-        sysmem = int(i.split()[1])/1024
+        sysmem = int(i.split()[1]) / 1024
 sysloadavg = open("/proc/loadavg").read().split()
-sysloadavg = sysloadavg[0]+"/"+sysloadavg[1]+"/"+sysloadavg[2]
+sysloadavg = sysloadavg[0] + "/" + sysloadavg[1] + "/" + sysloadavg[2]
 (syscpu, totalmem, totalcpu) = (0, 0, 0)
 for i in open("/proc/cpuinfo"):
     if i.startswith("processor"):
-        syscpu = syscpu+1
+        syscpu = syscpu + 1
 
 print "%-8s %-25s %8s   / %4s %17s  %5s %10s" % ("CTID", "HOSTNAME", "USED",
                                                 "TOTAL", "LOADAVG\t", "CPUS",
@@ -56,29 +57,30 @@ print "%-8s %-25s %8s   / %4s %17s  %5s %10s" % ("CTID", "HOSTNAME", "USED",
 
 for ct in sorted(data):
     (hostname, mem, loadavg,
-    cpus, cpuunits, status) = (data[ct][0], int(data[ct][1])*4096/1024/1024,
-                                data[ct][3], data[ct][4], data[ct][5],
+    cpus, cpuunits, status) = (data[ct][0], int(data[ct][1]) * 4096 / 1024 \
+                                / 1024, data[ct][3], data[ct][4], data[ct][5],
                                 data[ct][6])
     if data[ct][2] != "-":
-        usedmem = int(data[ct][2])*4096/1024/1024
+        usedmem = int(data[ct][2]) * 4096 / 1024 / 1024
     else:
         usedmem = 0
     totalmem = totalmem + mem
     if cpus != "-":
         totalcpu = totalcpu + int(cpus)
     if status != "running":
-        hostname = "!STOPPED! \033[1;02m"+hostname+"\033[1;m"
+        hostname = "!STOPPED! \033[1;02m" + hostname + "\033[1;m"
     print "%-8s [%-25s] %8d / %4d MB %17s %5s %10s" % (ct, hostname, usedmem,
                                                         mem, loadavg, cpus,
                                                         cpuunits)
 
 print "\nSystem loadavg: %s" % sysloadavg
 if totalcpu > syscpu:
-    overquota = totalcpu-syscpu
-    syscpu = str(syscpu)+" (overquota: \033[1;31m"+str(overquota)+"\033[1;m)"
+    overquota = totalcpu - syscpu
+    syscpu = str(syscpu) + " (overquota: \033[1;31m" + str(overquota) + \
+    "\033[1;m)"
 print "Allocated cores: %d / %s" % (totalcpu, syscpu)
 if totalmem > sysmem:
-    overquota = totalmem-sysmem
-    sysmem = str(sysmem)+" MB (overquota: \033[1;31m"+str(overquota)+ \
+    overquota = totalmem - sysmem
+    sysmem = str(sysmem) + " MB (overquota: \033[1;31m" + str(overquota) + \
     "\033[1;m MB)"
 print "Allocated memory: %d / %s" % (totalmem, sysmem)
