@@ -1,7 +1,7 @@
 #!/usr/bin/python
 #
 #    vzstat - vzlist enhancer
-#    version 0.1 - Mar  7 2012
+#    version 0.3 - Mar 11 2012
 #    Copyright (C) 2012  Ilya A. Otyutskiy <sharp@thesharp.ru>
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -54,20 +54,16 @@ for ct in sorted(data):
 	totalmem = totalmem + mem
 	if cpus != "-":
 		totalcpu = totalcpu + int(cpus)
-		cpuunits = "\033[1;31m"+str(cpuunits)+"\033[1;m"
 	if status != "running":
-		ct = "\033[1;02m"+ct
-		cpuunits = cpuunits+"\033[1;m"
+		hostname = "!STOPPED! \033[1;02m"+hostname+"\033[1;m"
 	print "%-8s [%-25s] %8d / %4d MB %17s %5s %10s" % (ct, hostname, usedmem, mem, loadavg, cpus, cpuunits)
 
 print "\nSystem loadavg: %s" % sysloadavg
 if totalcpu > syscpu:
 	overquota = totalcpu-syscpu
-	totalcpu = str(totalcpu)+" (overquota: \033[1;31m"+str(overquota)+"\033[1;m)"
-print "Allocated cores: %s" % totalcpu
-print "System cores: %d" % syscpu
+	syscpu = str(syscpu)+" (overquota: \033[1;31m"+str(overquota)+"\033[1;m)"
+print "Allocated cores: %d / %s" % (totalcpu, syscpu)
 if totalmem > sysmem:
 	overquota = totalmem-sysmem
-	totalmem = str(totalmem)+" MB (overquota: \033[1;31m"+str(overquota)+"\033[1;m MB)"
-print "Allocated memory: %s" % totalmem
-print "System memory: %d MB" % sysmem
+	sysmem = str(sysmem)+" MB (overquota: \033[1;31m"+str(overquota)+"\033[1;m MB)"
+print "Allocated memory: %d / %s" % (totalmem, sysmem)
