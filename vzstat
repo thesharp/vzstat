@@ -1,7 +1,7 @@
 #!/usr/bin/python
 #
 #    vzstat - OpenVZ's vzlist enhancer
-#    version 0.3 - Mar 11 2012
+#    version 0.4 - Jul 24 2012
 #    Copyright (C) 2012  Ilya A. Otyutskiy <sharp@thesharp.ru>
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -20,9 +20,13 @@
 
 import subprocess
 import sys
+import os
 
 vzlist = "/usr/sbin/vzlist"
 keys = "-o ctid,hostname,physpages.l,physpages,laverage,cpus,cpuunits,status"
+
+if not os.geteuid() == 0:
+    sys.exit("This program can only be run under root.")
 
 if len(sys.argv) > 1 and sys.argv[1] == "-a":
     all = "-a"
@@ -45,7 +49,8 @@ for i in open("/proc/meminfo"):
     if i.startswith("MemTotal"):
         sysmem = int(i.split()[1]) / 1024
 sysloadavg = open("/proc/loadavg").read().split()
-sysloadavg = sysloadavg[0] + "/" + sysloadavg[1] + "/" + sysloadavg[2]
+sysloadavg = "%.2f/%.2f/%.2f" % \
+              (float(sysloadavg[0]), float(sysloadavg[1]), float(sysloadavg[2]))
 (syscpu, totalmem, totalcpu) = (0, 0, 0)
 for i in open("/proc/cpuinfo"):
     if i.startswith("processor"):
@@ -58,7 +63,7 @@ print "%-8s %-25s %8s   / %4s %17s  %5s %10s" % ("CTID", "HOSTNAME", "USED",
 for ct in sorted(data):
     (hostname, mem, loadavg,
     cpus, cpuunits, status) = (data[ct][0], int(data[ct][1]) * 4096 / 1024 \
-                                / 1024, data[ct][3], data[ct][4], data[ct][5],
+                            / 1024, data[ct][3], data[ct][4], int(data[ct][5]),
                                 data[ct][6])
     if data[ct][2] != "-":
         usedmem = int(data[ct][2]) * 4096 / 1024 / 1024
@@ -68,19 +73,19 @@ for ct in sorted(data):
     if cpus != "-":
         totalcpu = totalcpu + int(cpus)
     if status != "running":
-        hostname = "!STOPPED! \033[1;02m" + hostname + "\033[1;m"
+        hostname = "(stopped) %s" % hostname
+    if len(hostname) > 25:
+        hostname = hostname[:24]
     print "%-8s [%-25s] %8d / %4d MB %17s %5s %10s" % (ct, hostname, usedmem,
-                                                        mem, loadavg, cpus,
-                                                        cpuunits)
+                                                       mem, loadavg, cpus,
+                                                       cpuunits)
 
 print "\nSystem loadavg: %s" % sysloadavg
 if totalcpu > syscpu:
-    overquota = totalcpu - syscpu
-    syscpu = str(syscpu) + " (overquota: \033[1;31m" + str(overquota) + \
-    "\033[1;m)"
+    overcommit = totalcpu - syscpu
+    syscpu = "%d (overcommitment: %d)" % (syscpu, overcommit)
 print "Allocated cores: %d / %s" % (totalcpu, syscpu)
 if totalmem > sysmem:
-    overquota = totalmem - sysmem
-    sysmem = str(sysmem) + " MB (overquota: \033[1;31m" + str(overquota) + \
-    "\033[1;m MB)"
+    overcommit = totalmem - sysmem
+    sysmem = "%d MB (overcommitment: %d MB)" % (sysmem, overcommit)
 print "Allocated memory: %d / %s" % (totalmem, sysmem)
