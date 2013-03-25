@@ -1,22 +1,4 @@
 #!/usr/bin/python
-#
-#    vzstat - OpenVZ's vzlist enhancer
-#    version 0.4 - Jul 24 2012
-#    Copyright (C) 2012  Ilya A. Otyutskiy <sharp@thesharp.ru>
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-#
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
 
 import subprocess
 import sys
@@ -33,8 +15,7 @@ if len(sys.argv) > 1 and sys.argv[1] == "-a":
 else:
     all = ""
 
-proc = subprocess.Popen("%s %s %s" % (vzlist, all, keys), shell=True,
-                        stdout=subprocess.PIPE)
+proc = subprocess.Popen("%s %s %s" % (vzlist, all, keys), shell=True, stdout=subprocess.PIPE)
 a = proc.communicate()[0]
 
 data = {}
@@ -49,22 +30,20 @@ for i in open("/proc/meminfo"):
     if i.startswith("MemTotal"):
         sysmem = int(i.split()[1]) / 1024
 sysloadavg = open("/proc/loadavg").read().split()
-sysloadavg = "%.2f/%.2f/%.2f" % \
-              (float(sysloadavg[0]), float(sysloadavg[1]), float(sysloadavg[2]))
+sysloadavg = "%.2f/%.2f/%.2f" % (float(sysloadavg[0]), float(sysloadavg[1]), float(sysloadavg[2]))
 (syscpu, totalmem, totalcpu) = (0, 0, 0)
 for i in open("/proc/cpuinfo"):
     if i.startswith("processor"):
         syscpu = syscpu + 1
 
-print "%-8s %-25s %8s   / %4s %17s  %5s %10s" % ("CTID", "HOSTNAME", "USED",
-                                                "TOTAL", "LOADAVG\t", "CPUS",
-                                                "CPUUNITS")
+print "%-8s %-25s %8s   / %4s %17s  %5s %10s" % ("CTID", "HOSTNAME", "USED", "TOTAL", "LOADAVG\t",
+                                                 "CPUS", "CPUUNITS")
 
 for ct in sorted(data):
-    (hostname, mem, loadavg,
-    cpus, cpuunits, status) = (data[ct][0], int(data[ct][1]) * 4096 / 1024 \
-                            / 1024, data[ct][3], data[ct][4], int(data[ct][5]),
-                                data[ct][6])
+    (hostname, mem, loadavg, cpus, cpuunits, status) = (data[ct][0],
+                                                        int(data[ct][1]) * 4096 / 1024 / 1024,
+                                                        data[ct][3], data[ct][4], int(data[ct][5]),
+                                                        data[ct][6])
     if data[ct][2] != "-":
         usedmem = int(data[ct][2]) * 4096 / 1024 / 1024
     else:
@@ -76,8 +55,7 @@ for ct in sorted(data):
         hostname = "(stopped) %s" % hostname
     if len(hostname) > 25:
         hostname = hostname[:24]
-    print "%-8s [%-25s] %8d / %4d MB %17s %5s %10s" % (ct, hostname, usedmem,
-                                                       mem, loadavg, cpus,
+    print "%-8s [%-25s] %8d / %4d MB %17s %5s %10s" % (ct, hostname, usedmem, mem, loadavg, cpus,
                                                        cpuunits)
 
 print "\nSystem loadavg: %s" % sysloadavg
