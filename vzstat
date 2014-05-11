@@ -1,69 +1,76 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import subprocess
 import sys
 import os
+import json
 
-vzlist = "/usr/sbin/vzlist"
-keys = "-o ctid,hostname,physpages.l,physpages,laverage,cpus,cpuunits,status"
 
-if not os.geteuid() == 0:
-    sys.exit("This program can only be run under root.")
+def pages2mb(pages):
+    return pages * 4096 / 1024 / 1024
 
-if len(sys.argv) > 1 and sys.argv[1] == "-a":
-    all = "-a"
-else:
-    all = ""
 
-proc = subprocess.Popen("%s %s %s" % (vzlist, all, keys), shell=True, stdout=subprocess.PIPE)
-a = proc.communicate()[0]
+def main():
+    vzlist = "/usr/sbin/vzlist --json"
 
-data = {}
-a = a.split('\n')[1:]
-for i in a:
-    if not i:
-        continue
-    i_data = i.split()
-    data[i_data[0]] = i_data[1:]
+    if not os.geteuid() == 0:
+        sys.exit("This program can only be run under root.")
 
-for i in open("/proc/meminfo"):
-    if i.startswith("MemTotal"):
-        sysmem = int(i.split()[1]) / 1024
-sysloadavg = open("/proc/loadavg").read().split()
-sysloadavg = "%.2f/%.2f/%.2f" % (float(sysloadavg[0]), float(sysloadavg[1]), float(sysloadavg[2]))
-(syscpu, totalmem, totalcpu) = (0, 0, 0)
-for i in open("/proc/cpuinfo"):
-    if i.startswith("processor"):
-        syscpu = syscpu + 1
-
-print "%-8s %-25s %8s   / %4s %17s  %5s %10s" % ("CTID", "HOSTNAME", "USED", "TOTAL", "LOADAVG\t",
-                                                 "CPUS", "CPUUNITS")
-
-for ct in sorted(data):
-    (hostname, mem, loadavg, cpus, cpuunits, status) = (data[ct][0],
-                                                        int(data[ct][1]) * 4096 / 1024 / 1024,
-                                                        data[ct][3], data[ct][4], int(data[ct][5]),
-                                                        data[ct][6])
-    if data[ct][2] != "-":
-        usedmem = int(data[ct][2]) * 4096 / 1024 / 1024
+    if len(sys.argv) > 1 and sys.argv[1] == "-a":
+        all = "-a"
     else:
-        usedmem = 0
-    totalmem = totalmem + mem
-    if cpus != "-":
-        totalcpu = totalcpu + int(cpus)
-    if status != "running":
-        hostname = "(stopped) %s" % hostname
-    if len(hostname) > 25:
-        hostname = hostname[:24]
-    print "%-8s [%-25s] %8d / %4d MB %17s %5s %10s" % (ct, hostname, usedmem, mem, loadavg, cpus,
-                                                       cpuunits)
+        all = ""
 
-print "\nSystem loadavg: %s" % sysloadavg
-if totalcpu > syscpu:
-    overcommit = totalcpu - syscpu
-    syscpu = "%d (overcommitment: %d)" % (syscpu, overcommit)
-print "Allocated cores: %d / %s" % (totalcpu, syscpu)
-if totalmem > sysmem:
-    overcommit = totalmem - sysmem
-    sysmem = "%d MB (overcommitment: %d MB)" % (sysmem, overcommit)
-print "Allocated memory: %d / %s" % (totalmem, sysmem)
+    proc = subprocess.Popen("%s %s" % (vzlist, all), shell=True, stdout=subprocess.PIPE)
+    data = json.loads(proc.communicate()[0])
+
+    for i in open("/proc/meminfo"):
+        if i.startswith("MemTotal"):
+            node_ram = int(i.split()[1]) / 1024
+    node_la = open("/proc/loadavg").read().split()
+    node_la = "%.2f/%.2f/%.2f" % (float(node_la[0]), float(node_la[1]), float(node_la[2]))
+    node_cpu = 0
+    for i in open("/proc/cpuinfo"):
+        if i.startswith("processor"):
+            node_cpu += 1
+
+    used_cpu = 0
+    used_ram = 0
+
+    print "%-8s %-25s %8s   / %4s %17s  %5s %10s" % ("CTID", "HOSTNAME", "USED", "TOTAL",
+                                                     "LOADAVG\t", "CPUS", "CPUUNITS")
+
+    for ct in data:
+        ctid = ct["ctid"]
+        hostname = ct["hostname"]
+        ram_limit = pages2mb(ct["physpages"]["limit"])
+        used_ram += ram_limit
+        ram_current = pages2mb(ct["physpages"]["held"])
+        cpus = ct["cpus"]
+        used_cpu += cpus
+        cpuunits = ct["cpuunits"]
+        if ct["status"] != "running":
+            hostname = "(stopped) %s" % hostname
+            loadavg = None
+        else:
+            loadavg = []
+            for la in ct["laverage"]:
+                loadavg.append("%0.02f" % la)
+            loadavg = "/".join(loadavg)
+        if len(hostname) > 25:
+            hostname = hostname[:24]
+        print "%-8s [%-25s] %8d / %4d MB %17s %5s %10s" % (ctid, hostname, ram_current, ram_limit,
+                                                           loadavg, cpus, cpuunits)
+
+    print "\nNode loadavg: %s" % node_la
+    if used_cpu > node_cpu:
+        overcommit = used_cpu - node_cpu
+        node_cpu = "%d (overcommitment: %d)" % (node_cpu, overcommit)
+    print "Allocated cores: %d / %s" % (used_cpu, node_cpu)
+    if used_ram > node_ram:
+        overcommit = used_ram - node_ram
+        node_ram = "%d MB (overcommitment: %d MB)" % (node_ram, overcommit)
+    print "Allocated memory: %d / %s" % (used_ram, node_ram)
+
+if __name__ == '__main__':
+    main()
